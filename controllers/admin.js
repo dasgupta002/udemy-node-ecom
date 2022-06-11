@@ -1,5 +1,7 @@
-const fs = require('fs');
+var cloudinary = require('cloudinary').v2;
 const { validationResult } = require('express-validator/check');
+
+cloudinary.config({ cloud_name: 'dasgupta002', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_SECRET });
 
 const Product = require('../models/product');
 
@@ -32,8 +34,9 @@ exports.submitItem = (req, res, next) => {
          res.render('admin/add', { pageTitle: 'Shopper - Add Item', path: '/admin/add-product', errors: errors.array(), oldInput: { title: title, description: description, price: price } });      
       } else {
          const imageURL = image.path; 
+         const fileName = image.filename;
 
-         const product = new Product({ createdBy: req.user, title: title, description: description, price: price, imageURL: imageURL });
+         const product = new Product({ createdBy: req.user, title: title, description: description, price: price, imageURL: imageURL, fileName: fileName });
          
          product.save()
                 .then((result) => res.redirect('all-products'))
@@ -72,7 +75,7 @@ exports.submitChanges = (req, res, next) => {
    } else {
       Product.findById(productId)
              .then((product) => {
-                if(product.userID.toString() !== req.user._id.toString()) {
+                if(product.createdBy.toString() !== req.user._id.toString()) {
                    res.redirect('/');
                 } else {
                    product.title = title;
@@ -80,12 +83,7 @@ exports.submitChanges = (req, res, next) => {
                    product.description = description;
                    
                    if(image) {
-                      fs.unlink(product.imageURL, (error) => {
-                         if(error) {
-                            next(error);
-                         }
-                      });
-                      
+                      cloudinary.uploader.destroy(product.fileName);
                       product.imageURL = image.path;
                    }
 
@@ -109,12 +107,8 @@ exports.deleteItem = (req, res, next) => {
              if(!product) {
                 next(new Error('Product not found!'));
              } else {
-                fs.unlink(product.imageURL, (error) => {
-                   if(error) {
-                      next(error);
-                   }
-                });
-                return Product.deleteOne({ _id: productId, userID: req.user._id })
+                cloudinary.uploader.destroy(product.fileName);
+                return Product.deleteOne({ _id: productId, createdBy: req.user._id })
              }
           })
           .then((result) => res.redirect('all-products'))

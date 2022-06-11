@@ -3,7 +3,8 @@ const session = require('express-session');
 const MongoDBStore = require('connect-mongodb-session')(session);
 const mongoose = require('mongoose');
 const multer = require('multer');
-const uuid = require('uuid');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const csrf = require('csurf');
 const path = require('path');
 
@@ -19,30 +20,23 @@ const app = express();
 
 const store = new MongoDBStore({ uri: process.env.MONGO_URI, collection: 'sessions' });
 
-const fileStorage = multer.diskStorage({ 
-    destination: 'images',
-    filename: (req, file, callback) => {
-        callback(null, uuid.v4() + '-' + file.originalname); 
+cloudinary.config({ cloud_name: 'dasgupta002', api_key: process.env.CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_SECRET });
+const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'Shopper',
+        allowedFormats: ['jpeg', 'png', 'jpg'],
     }
 });
-
-const fileFilter = (req, file, callback) => {
-    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpg' || file.mimetype === 'image/jpeg') {
-        callback(null, true);
-    } else {
-        callback(null, false);
-    }
-};
 
 const csrfSecurity = csrf();
 
 app.set('view engine', 'pug');
 
 app.use(express.urlencoded({ extended: false }));
-app.use(multer({ storage: fileStorage, fileFilter: fileFilter }).single('image'));
+app.use(multer({ storage: storage }).single('image'));
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/images' , express.static(path.join(__dirname, 'images')));
 
 app.use(session({ secret: 'session secret key', resave: false, saveUninitialized: false, store: store }));
 app.use(csrfSecurity);
@@ -79,7 +73,7 @@ app.use('/', shopRouter);
 app.use(errorController.notFound);
 app.use((error, req, res, next) => res.status(500).render('500', { pageTitle: '500 Error!' }));  
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 80;
 
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true })
         .then((result) => app.listen(port))

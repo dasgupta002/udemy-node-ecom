@@ -12,7 +12,7 @@ block content
             .grid 
                 each product in products
                     .card
-                        img(src = '/' + product.imageURL, alt = "")
+                        img(src = product.imageURL, alt = "")
                         h3 #{ product.title }
                         p $ #{ product.price }
                         p #{ product.description }
