@@ -14,29 +14,35 @@ exports.listProducts = (req, res, next) => {
    
    let total;
    
-   Product.countDocuments()
-          .then((count) => {
-             total = count;
-             return Product.find()
-                           .skip((page - 1) * ITEM_COUNT)
-                           .limit(ITEM_COUNT) 
-          })
-          .then((prods) => {
-             let products = [];
-
-             if(req.user) {
-                products = prods.filter((prod) => prod.createdBy.toString() !== req.user._id.toString());
-             } else {
-                products = prods;
-             }
-
-             res.render('shop/list', { pageTitle: 'Shopper', path: '/', products: products, currentPage: page, hasNext: ITEM_COUNT * page < total, nextPage: page + 1, hasPrevious: page > 1, previousPage: page - 1, lastPage: Math.ceil(total / ITEM_COUNT) });
-          })
-          .catch((err) => {
-             const error = new Error(err);
-             error.httpStatusCode = 500;
-             next(error);
+   if(req.user) {
+      Product.countDocuments({ createdBy: { $ne: req.user._id } })
+             .then((count) => {
+               total = count;
+               return Product.find({ createdBy: { $ne: req.user._id } })
+                             .skip((page - 1) * ITEM_COUNT)
+                             .limit(ITEM_COUNT) 
+             })
+             .then((products) => res.render('shop/list', { pageTitle: 'Shopper', path: '/', products: products, currentPage: page, hasNext: ITEM_COUNT * page < total, nextPage: page + 1, hasPrevious: page > 1, previousPage: page - 1, lastPage: Math.ceil(total / ITEM_COUNT) }))
+             .catch((err) => {
+               const error = new Error(err);
+               error.httpStatusCode = 500;
+               next(error);
           });
+   } else {
+      Product.countDocuments()
+             .then((count) => {
+               total = count;
+               return Product.find()
+                             .skip((page - 1) * ITEM_COUNT)
+                             .limit(ITEM_COUNT) 
+             })
+             .then((products) => res.render('shop/list', { pageTitle: 'Shopper', path: '/', products: products, currentPage: page, hasNext: ITEM_COUNT * page < total, nextPage: page + 1, hasPrevious: page > 1, previousPage: page - 1, lastPage: Math.ceil(total / ITEM_COUNT) }))
+             .catch((err) => {
+               const error = new Error(err);
+               error.httpStatusCode = 500;
+               next(error);
+             });
+   }
 };
 
 exports.findItem = (req, res, next) => {
